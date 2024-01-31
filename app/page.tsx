@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Player, useCreateStream } from "@livepeer/react";
+import { io } from "socket.io-client";
+
+let SOCKET_URL = "http://localhost:8000";
 
 const date = new Date();
+
+const socket = io(SOCKET_URL);
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
@@ -19,14 +24,14 @@ export default function Home() {
     status,
   } = useCreateStream({ name: date.toDateString() });
 
-  console.log(stream);
-
   async function recordScreen() {
     return await navigator.mediaDevices.getDisplayMedia({
       audio: true,
       video: true,
     });
   }
+
+  let videoRef = useRef(null);
 
   function createRecorder(stream: MediaStream, mimeType: string) {
     // the stream data is stored in this array
@@ -35,15 +40,20 @@ export default function Home() {
     const mediaRecorder = new MediaRecorder(stream);
 
     mediaRecorder.ondataavailable = function (e) {
-      if (e.data.size > 0) {
-        recordedChunks.push(e.data);
-        setChunk((prev) => [...prev, e.data]);
+      if (e.data.size > 0 && socket) {
+        //  recordedChunks.push(e.data);
+        //  setChunk((prev) => [...prev, e.data]);
+        socket.emit("message", e.data);
       }
     };
 
     mediaRecorder.onstop = function () {
-      saveFile(recordedChunks);
-      recordedChunks = [];
+      // saveFile(recordedChunks);
+      // recordedChunks = [];
+      const tracks = stream.getTracks();
+      tracks.forEach((track) => {
+        track.stop();
+      });
     };
     mediaRecorder.start(200); // For every 200ms the stream data will be stored in a separate chunk.
     return mediaRecorder;
@@ -68,6 +78,11 @@ export default function Home() {
     setIsRecording(true);
 
     let stream = await recordScreen();
+    if (videoRef.current) {
+      (videoRef.current as any).srcObject = new MediaStream([
+        stream.getVideoTracks()[0],
+      ]);
+    }
     let mimeType = "video/webm";
     let mediaRecorder = createRecorder(stream, mimeType);
 
@@ -83,17 +98,13 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center space-y-3">
-      {stream && (
-        <div className={"relative container h-96"}>
-          <Player
-            title="Test Player"
-            playbackId={stream.playbackId}
-            showPipButton
-            objectFit="cover"
-            priority
-          />
-        </div>
-      )}
+      <div className={"relative container h-96"}>
+        <video
+          style={{ width: "100%", height: "100%", background: "black" }}
+          ref={videoRef}
+          autoPlay
+        />
+      </div>
       <Button
         disabled={status === "loading" || !createStream}
         onClick={() => createStream?.()}
