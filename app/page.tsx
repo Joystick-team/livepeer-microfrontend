@@ -1,15 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Player, useCreateStream } from "@livepeer/react";
 import { io } from "socket.io-client";
 
-let SOCKET_URL = "http://localhost:8000";
+let SOCKET_URL = "ws://localhost:8000";
 
 const date = new Date();
 
-const socket = io(SOCKET_URL);
+let socket: WebSocket;
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
@@ -37,13 +37,22 @@ export default function Home() {
     // the stream data is stored in this array
     let recordedChunks: Blob[] = [];
 
-    const mediaRecorder = new MediaRecorder(stream);
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: "video/webm;codecs=h264",
+      videoBitsPerSecond: 1 * 1024 * 1024,
+    });
 
     mediaRecorder.ondataavailable = function (e) {
-      if (e.data.size > 0 && socket) {
+      if (e.data.size > 0) {
         //  recordedChunks.push(e.data);
         //  setChunk((prev) => [...prev, e.data]);
-        socket.emit("message", e.data);
+        // socket.emit("message", e.data);
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(e.data);
+          console.log("Sent data", e.data);
+        } else {
+          socket = new WebSocket(SOCKET_URL);
+        }
       }
     };
 
@@ -95,6 +104,18 @@ export default function Home() {
     recorderInstance.stop();
     setIsRecording(false);
   };
+
+  useEffect(() => {
+    if (stream && stream.streamKey) {
+      socket = new WebSocket(`${SOCKET_URL}/rtmp/${stream.streamKey}`);
+      socket.addEventListener("open", (event) => {
+        console.log("Websocket opened ", event);
+      });
+      socket.addEventListener("close", (event) => {
+        console.log("Awwn websocket closed already ", event);
+      });
+    }
+  }, [stream]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center space-y-3">
