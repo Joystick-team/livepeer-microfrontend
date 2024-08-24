@@ -3,9 +3,8 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Player, useCreateStream } from "@livepeer/react";
-import { io } from "socket.io-client";
 
-let SOCKET_URL = "ws://localhost:8000";
+let SOCKET_URL = "wss://vps.freetyl.io";
 
 const date = new Date();
 
@@ -103,6 +102,7 @@ export default function Home() {
 
     recorderInstance.stop();
     setIsRecording(false);
+    socket.close();
   };
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export default function Home() {
         console.log("Websocket opened ", event);
       });
       socket.addEventListener("close", (event) => {
-        console.log("Awwn websocket closed already ", event);
+        console.log("Websocket closed", event);
       });
     }
   }, [stream]);

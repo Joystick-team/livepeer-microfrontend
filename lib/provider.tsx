@@ -7,7 +7,7 @@ import {
   studioProvider,
 } from "@livepeer/react";
 
-const apiKey = "cf706d6f-b961-4b3b-af32-827691ce496c";
+const apiKey = "cf706d6f-b961-4b3b-af32-827d93ce596b"; // Sample API Key
 
 const client = createReactClient({
   provider: studioProvider({ apiKey }),
